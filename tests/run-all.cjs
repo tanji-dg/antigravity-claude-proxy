@@ -24,7 +24,7 @@ const tests = [
 async function runTest(test) {
     return new Promise((resolve) => {
         const testPath = path.join(__dirname, test.file);
-        const child = spawn('node', [testPath], {
+        const child = spawn('node', ['--require', 'global-agent/bootstrap.js', testPath], {
             stdio: 'inherit'
         });
 

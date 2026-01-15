@@ -3,6 +3,8 @@
  * Entry point - starts the proxy server
  */
 
+import 'global-agent/bootstrap.js';
+
 import app from './server.js';
 import { DEFAULT_PORT } from './constants.js';
 import { logger } from './utils/logger.js';
