@@ -4,12 +4,16 @@
  */
 
 import 'global-agent/bootstrap.js';
+import { initProxy } from './utils/proxy.js';
 
 import app from './server.js';
 import { DEFAULT_PORT } from './constants.js';
 import { logger } from './utils/logger.js';
 import path from 'path';
 import os from 'os';
+
+// Initialize proxy before anything else
+initProxy();
 
 // Parse command line arguments
 const args = process.argv.slice(2);

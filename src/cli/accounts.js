@@ -19,7 +19,12 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { exec } from 'child_process';
 import net from 'net';
+import { initProxy } from '../utils/proxy.js';
 import { ACCOUNT_CONFIG_PATH, DEFAULT_PORT, MAX_ACCOUNTS } from '../constants.js';
+
+// Initialize proxy for CLI (important for headless authentication)
+initProxy();
+
 import {
     getAuthorizationUrl,
     startCallbackServer,
