@@ -28,7 +28,11 @@ export function initProxy() {
         const proxyAgent = new ProxyAgent({
             uri: proxyUrl,
             // Support NO_PROXY
-            noProxy: process.env.NO_PROXY || process.env.no_proxy
+            noProxy: process.env.NO_PROXY || process.env.no_proxy,
+            // Increase timeouts for long-running LLM requests
+            bodyTimeout: 300000, // 5 minutes
+            headersTimeout: 300000,
+            connectTimeout: 60000
         });
         
         setGlobalDispatcher(proxyAgent);
