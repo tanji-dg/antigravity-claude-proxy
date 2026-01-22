@@ -108,6 +108,7 @@ export const MAX_ACCOUNTS = config?.maxAccounts || 10; // From config or 10
 
 // Rate limit wait thresholds
 export const MAX_WAIT_BEFORE_ERROR_MS = config?.maxWaitBeforeErrorMs || 120000; // From config or 2 minutes
+export const RESPECT_API_RATE_LIMIT = config?.respectApiRateLimit || false; // From config or false
 
 // Thinking model constants
 export const MIN_SIGNATURE_LENGTH = 50; // Minimum valid thinking signature length
@@ -240,6 +241,7 @@ export default {
     MAX_EMPTY_RESPONSE_RETRIES,
     MAX_ACCOUNTS,
     MAX_WAIT_BEFORE_ERROR_MS,
+    RESPECT_API_RATE_LIMIT,
     MIN_SIGNATURE_LENGTH,
     GEMINI_MAX_OUTPUT_TOKENS,
     GEMINI_SKIP_SIGNATURE,

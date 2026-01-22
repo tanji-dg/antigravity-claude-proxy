@@ -282,7 +282,7 @@ export function mountWebUI(app, dirname, accountManager) {
      */
     app.post('/api/config', (req, res) => {
         try {
-            const { debug, logLevel, maxRetries, retryBaseMs, retryMaxMs, persistTokenCache, defaultCooldownMs, maxWaitBeforeErrorMs } = req.body;
+            const { debug, logLevel, maxRetries, retryBaseMs, retryMaxMs, persistTokenCache, defaultCooldownMs, maxWaitBeforeErrorMs, respectApiRateLimit } = req.body;
 
             // Only allow updating specific fields (security)
             const updates = {};
@@ -307,6 +307,9 @@ export function mountWebUI(app, dirname, accountManager) {
             }
             if (typeof maxWaitBeforeErrorMs === 'number' && maxWaitBeforeErrorMs >= 0 && maxWaitBeforeErrorMs <= 600000) {
                 updates.maxWaitBeforeErrorMs = maxWaitBeforeErrorMs;
+            }
+            if (typeof respectApiRateLimit === 'boolean') {
+                updates.respectApiRateLimit = respectApiRateLimit;
             }
 
             if (Object.keys(updates).length === 0) {

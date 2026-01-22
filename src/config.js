@@ -15,6 +15,7 @@ const DEFAULT_CONFIG = {
     persistTokenCache: false,
     defaultCooldownMs: 10000,  // 10 seconds
     maxWaitBeforeErrorMs: 120000, // 2 minutes
+    respectApiRateLimit: false, // Respect API reset time instead of capping
     modelMapping: {}
 };
 
@@ -58,6 +59,7 @@ function loadConfig() {
         if (process.env.API_KEY) config.apiKey = process.env.API_KEY;
         if (process.env.WEBUI_PASSWORD) config.webuiPassword = process.env.WEBUI_PASSWORD;
         if (process.env.DEBUG === 'true') config.debug = true;
+        if (process.env.RESPECT_API_RATE_LIMIT === 'true') config.respectApiRateLimit = true;
 
     } catch (error) {
         console.error('[Config] Error loading config:', error);

@@ -5,7 +5,7 @@
  * All rate limits are model-specific.
  */
 
-import { DEFAULT_COOLDOWN_MS } from '../constants.js';
+import { DEFAULT_COOLDOWN_MS, RESPECT_API_RATE_LIMIT } from '../constants.js';
 import { formatDuration } from '../utils/helpers.js';
 import { logger } from '../utils/logger.js';
 
@@ -119,12 +119,17 @@ export function markRateLimited(accounts, email, resetMs = null, modelId) {
     if (!account) return false;
 
     // Use configured cooldown as the maximum wait time
-    // If API returns a reset time, cap it at DEFAULT_COOLDOWN_MS
+    // If API returns a reset time, cap it at DEFAULT_COOLDOWN_MS (unless RESPECT_API_RATE_LIMIT is set)
     // If API doesn't return a reset time, use DEFAULT_COOLDOWN_MS
     let cooldownMs;
     if (resetMs && resetMs > 0) {
-        // API provided a reset time - cap it at configured maximum
-        cooldownMs = Math.min(resetMs, DEFAULT_COOLDOWN_MS);
+        if (RESPECT_API_RATE_LIMIT) {
+            // Respect API reset time (no capping)
+            cooldownMs = resetMs;
+        } else {
+            // API provided a reset time - cap it at configured maximum
+            cooldownMs = Math.min(resetMs, DEFAULT_COOLDOWN_MS);
+        }
     } else {
         // No reset time from API - use configured default
         cooldownMs = DEFAULT_COOLDOWN_MS;

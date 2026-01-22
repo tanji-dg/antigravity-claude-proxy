@@ -27,6 +27,7 @@
 
   "defaultCooldownMs": 60000,
   "maxWaitBeforeErrorMs": 120000,
+  "respectApiRateLimit": false,
 
   "tokenCacheTtlMs": 300000,
   "persistTokenCache": false,
