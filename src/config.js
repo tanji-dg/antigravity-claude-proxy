@@ -1,4 +1,5 @@
-import fs from 'fs';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { logger } from './utils/logger.js';
@@ -24,62 +25,77 @@ const HOME_DIR = os.homedir();
 const CONFIG_DIR = path.join(HOME_DIR, '.config', 'antigravity-proxy');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
-// Ensure config dir exists
-if (!fs.existsSync(CONFIG_DIR)) {
-    try {
-        fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    } catch (err) {
-        // Ignore
+// Ensure config dir exists - use async version inside initialization
+async function ensureConfigDir() {
+    if (!existsSync(CONFIG_DIR)) {
+        try {
+            await mkdir(CONFIG_DIR, { recursive: true });
+        } catch (err) {
+            // Ignore
+        }
     }
 }
 
 // Load config
 let config = { ...DEFAULT_CONFIG };
+let isLoaded = false;
+let loadPromise = null;
 
-function loadConfig() {
-    try {
-        // Env vars take precedence for initial defaults, but file overrides them if present?
-        // Usually Env > File > Default.
+export async function initializeConfig() {
+    if (isLoaded) return config;
+    if (loadPromise) return loadPromise;
 
-        if (fs.existsSync(CONFIG_FILE)) {
-            const fileContent = fs.readFileSync(CONFIG_FILE, 'utf8');
-            const userConfig = JSON.parse(fileContent);
-            config = { ...DEFAULT_CONFIG, ...userConfig };
-        } else {
-             // Try looking in current dir for config.json as fallback
-             const localConfigPath = path.resolve('config.json');
-             if (fs.existsSync(localConfigPath)) {
-                 const fileContent = fs.readFileSync(localConfigPath, 'utf8');
-                 const userConfig = JSON.parse(fileContent);
-                 config = { ...DEFAULT_CONFIG, ...userConfig };
-             }
+    loadPromise = (async () => {
+        try {
+            await ensureConfigDir();
+
+            if (existsSync(CONFIG_FILE)) {
+                const fileContent = await readFile(CONFIG_FILE, 'utf8');
+                const userConfig = JSON.parse(fileContent);
+                config = { ...DEFAULT_CONFIG, ...userConfig };
+            } else {
+                 // Try looking in current dir for config.json as fallback
+                 const localConfigPath = path.resolve('config.json');
+                 if (existsSync(localConfigPath)) {
+                     const fileContent = await readFile(localConfigPath, 'utf8');
+                     const userConfig = JSON.parse(fileContent);
+                     config = { ...DEFAULT_CONFIG, ...userConfig };
+                 }
+            }
+
+            // Environment overrides
+            if (process.env.API_KEY) config.apiKey = process.env.API_KEY;
+            if (process.env.WEBUI_PASSWORD) config.webuiPassword = process.env.WEBUI_PASSWORD;
+            if (process.env.DEBUG === 'true') config.debug = true;
+            if (process.env.RESPECT_API_RATE_LIMIT === 'true') config.respectApiRateLimit = true;
+
+            isLoaded = true;
+            return config;
+        } catch (error) {
+            console.error('[Config] Error loading config:', error);
+            return config; // Return defaults on error
+        } finally {
+            loadPromise = null;
         }
+    })();
 
-        // Environment overrides
-        if (process.env.API_KEY) config.apiKey = process.env.API_KEY;
-        if (process.env.WEBUI_PASSWORD) config.webuiPassword = process.env.WEBUI_PASSWORD;
-        if (process.env.DEBUG === 'true') config.debug = true;
-        if (process.env.RESPECT_API_RATE_LIMIT === 'true') config.respectApiRateLimit = true;
-
-    } catch (error) {
-        console.error('[Config] Error loading config:', error);
-    }
+    return loadPromise;
 }
 
-// Initial load
-loadConfig();
-
+// Still support synchronous get for parts of the app that can't wait,
+// but they should call initializeConfig() at startup.
 export function getPublicConfig() {
     return { ...config };
 }
 
-export function saveConfig(updates) {
+export async function saveConfig(updates) {
     try {
         // Apply updates
         config = { ...config, ...updates };
 
         // Save to disk
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+        await ensureConfigDir();
+        await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
         return true;
     } catch (error) {
         logger.error('[Config] Failed to save config:', error);

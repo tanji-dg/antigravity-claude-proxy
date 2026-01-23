@@ -110,19 +110,59 @@ document.addEventListener('alpine:init', () => {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 const data = await response.json();
-                this.accounts = data.accounts || [];
-                if (data.models && data.models.length > 0) {
-                    this.models = data.models;
+                const newAccounts = data.accounts || [];
+
+                // Smart merge: only replace account objects if meaningful data changed (quota, status, enabled)
+                // This prevents redundant re-renders of charts/stats when only lastUsed changes
+                let accountsChanged = false;
+                if (this.accounts.length !== newAccounts.length) {
+                    this.accounts = newAccounts;
+                    accountsChanged = true;
+                } else {
+                    newAccounts.forEach((newAcc, i) => {
+                        const oldAcc = this.accounts[i];
+                        // Compare meaningful fields
+                        const meaningfulChange =
+                            newAcc.email !== oldAcc.email ||
+                            newAcc.status !== oldAcc.status ||
+                            newAcc.enabled !== oldAcc.enabled ||
+                            newAcc.isInvalid !== oldAcc.isInvalid ||
+                            JSON.stringify(newAcc.limits) !== JSON.stringify(oldAcc.limits) ||
+                            JSON.stringify(newAcc.subscription) !== JSON.stringify(oldAcc.subscription);
+
+                        if (meaningfulChange) {
+                            this.accounts[i] = newAcc;
+                            accountsChanged = true;
+                        } else {
+                            // Only metadata changed (like lastUsed), update silently
+                            oldAcc.lastUsed = newAcc.lastUsed;
+                        }
+                    });
                 }
+
+                if (data.models && data.models.length > 0) {
+                    if (JSON.stringify(this.models) !== JSON.stringify(data.models)) {
+                        this.models = data.models;
+                        accountsChanged = true;
+                    }
+                }
+
                 this.modelConfig = data.modelConfig || {};
 
                 // Store usage history if included (for dashboard)
                 if (data.history) {
-                    this.usageHistory = data.history;
+                    // Only update if history actually changed
+                    if (JSON.stringify(this.usageHistory) !== JSON.stringify(data.history)) {
+                        this.usageHistory = data.history;
+                        // history changes always count as a meaningful change for the dashboard
+                        accountsChanged = true;
+                    }
                 }
 
-                this.saveToCache(); // Save fresh data
-                this.computeQuotaRows();
+                if (accountsChanged || this.initialLoad) {
+                    this.saveToCache(); // Save fresh data
+                    this.computeQuotaRows();
+                }
 
                 this.lastUpdated = new Date().toLocaleTimeString();
 

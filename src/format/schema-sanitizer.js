@@ -585,16 +585,50 @@ function toGoogleType(type) {
     return typeMap[type.toLowerCase()] || type.toUpperCase();
 }
 
+// ============================================================================
+// Schema Cache
+// ============================================================================
+
+const schemaCache = new Map();
+
 /**
  * Cleans JSON schema for Gemini API compatibility.
  * Uses a multi-phase pipeline matching opencode-antigravity-auth approach.
+ *
+ * Includes a cache to avoid redundant processing of identical schemas.
  *
  * @param {Object} schema - The JSON schema to clean
  * @returns {Object} Cleaned schema safe for Gemini API
  */
 export function cleanSchema(schema) {
     if (!schema || typeof schema !== 'object') return schema;
-    if (Array.isArray(schema)) return schema.map(cleanSchema);
+
+    // Check cache for top-level call
+    const cacheKey = JSON.stringify(schema);
+    if (schemaCache.has(cacheKey)) {
+        return schemaCache.get(cacheKey);
+    }
+
+    const result = _cleanSchemaRecursive(schema);
+
+    // Store in cache
+    schemaCache.set(cacheKey, result);
+
+    // Prevent cache from growing too large (keep last 500 schemas)
+    if (schemaCache.size > 500) {
+        const firstKey = schemaCache.keys().next().value;
+        schemaCache.delete(firstKey);
+    }
+
+    return result;
+}
+
+/**
+ * Recursive implementation of cleanSchema
+ */
+function _cleanSchemaRecursive(schema) {
+    if (!schema || typeof schema !== 'object') return schema;
+    if (Array.isArray(schema)) return schema.map(_cleanSchemaRecursive);
 
     // Phase 1: Convert $refs to hints
     let result = convertRefsToHints(schema);
@@ -641,16 +675,16 @@ export function cleanSchema(schema) {
     if (result.properties && typeof result.properties === 'object') {
         const newProps = {};
         for (const [key, value] of Object.entries(result.properties)) {
-            newProps[key] = cleanSchema(value);
+            newProps[key] = _cleanSchemaRecursive(value);
         }
         result.properties = newProps;
     }
 
     if (result.items) {
         if (Array.isArray(result.items)) {
-            result.items = result.items.map(cleanSchema);
+            result.items = result.items.map(_cleanSchemaRecursive);
         } else if (typeof result.items === 'object') {
-            result.items = cleanSchema(result.items);
+            result.items = _cleanSchemaRecursive(result.items);
         }
     }
 

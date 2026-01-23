@@ -41,6 +41,9 @@ export class AccountManager {
     #tokenCache = new Map(); // email -> { token, extractedAt }
     #projectCache = new Map(); // email -> projectId
     #initPromise = null;
+    #saveTimeout = null;
+    #isSaving = false;
+    #pendingSave = false;
 
     constructor(configPath = ACCOUNT_CONFIG_PATH) {
         this.#configPath = configPath;
@@ -89,6 +92,11 @@ export class AccountManager {
      */
     async reload() {
         this.#initialized = false;
+        // Clear any pending save timeout
+        if (this.#saveTimeout) {
+            clearTimeout(this.#saveTimeout);
+            this.#saveTimeout = null;
+        }
         await this.initialize();
         logger.info('[AccountManager] Accounts reloaded from disk');
     }
@@ -268,11 +276,35 @@ export class AccountManager {
     }
 
     /**
-     * Save current state to disk (async)
-     * @returns {Promise<void>}
+     * Save current state to disk (debounced to avoid excessive I/O)
+     * @returns {void}
      */
-    async saveToDisk() {
-        await saveAccounts(this.#configPath, this.#accounts, this.#settings, this.#currentIndex);
+    saveToDisk() {
+        if (this.#saveTimeout) {
+            clearTimeout(this.#saveTimeout);
+        }
+
+        this.#saveTimeout = setTimeout(async () => {
+            this.#saveTimeout = null;
+
+            if (this.#isSaving) {
+                this.#pendingSave = true;
+                return;
+            }
+
+            this.#isSaving = true;
+            try {
+                await saveAccounts(this.#configPath, this.#accounts, this.#settings, this.#currentIndex);
+            } catch (err) {
+                logger.error('[AccountManager] Failed to save accounts:', err.message);
+            } finally {
+                this.#isSaving = false;
+                if (this.#pendingSave) {
+                    this.#pendingSave = false;
+                    this.saveToDisk();
+                }
+            }
+        }, 1000); // 1 second debounce
     }
 
     /**

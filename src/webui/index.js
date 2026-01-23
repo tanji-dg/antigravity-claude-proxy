@@ -280,7 +280,7 @@ export function mountWebUI(app, dirname, accountManager) {
     /**
      * POST /api/config - Update server configuration
      */
-    app.post('/api/config', (req, res) => {
+    app.post('/api/config', async (req, res) => {
         try {
             const { debug, logLevel, maxRetries, retryBaseMs, retryMaxMs, persistTokenCache, defaultCooldownMs, maxWaitBeforeErrorMs, respectApiRateLimit } = req.body;
 
@@ -319,7 +319,7 @@ export function mountWebUI(app, dirname, accountManager) {
                 });
             }
 
-            const success = saveConfig(updates);
+            const success = await saveConfig(updates);
 
             if (success) {
                 res.json({
@@ -343,7 +343,7 @@ export function mountWebUI(app, dirname, accountManager) {
     /**
      * POST /api/config/password - Change WebUI password
      */
-    app.post('/api/config/password', (req, res) => {
+    app.post('/api/config/password', async (req, res) => {
         try {
             const { oldPassword, newPassword } = req.body;
 
@@ -364,7 +364,7 @@ export function mountWebUI(app, dirname, accountManager) {
             }
 
             // Save new password
-            const success = saveConfig({ webuiPassword: newPassword });
+            const success = await saveConfig({ webuiPassword: newPassword });
 
             if (success) {
                 // Update in-memory config
@@ -590,7 +590,7 @@ export function mountWebUI(app, dirname, accountManager) {
     });
 
     /**
-     * GET /api/logs/stream - Stream logs via SSE
+     * GET /api/logs/stream - Stream logs via SSE (batched for performance)
      */
     app.get('/api/logs/stream', (req, res) => {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -598,20 +598,41 @@ export function mountWebUI(app, dirname, accountManager) {
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering
 
-        const sendLog = (log) => {
+        let logBuffer = [];
+        let batchTimeout = null;
+
+        const flushLogs = () => {
+            if (logBuffer.length === 0) return;
             try {
                 if (res.writable && !res.writableEnded) {
-                    res.write(`data: ${JSON.stringify(log)}\n\n`);
+                    const data = logBuffer.map(log => `data: ${JSON.stringify(log)}\n\n`).join('');
+                    res.write(data);
                 }
             } catch (err) {
-                // Ignore write errors, they will be handled by the close event
+                // Ignore write errors
+            } finally {
+                logBuffer = [];
+                batchTimeout = null;
+            }
+        };
+
+        const sendLog = (log) => {
+            logBuffer.push(log);
+            if (!batchTimeout) {
+                // Buffer for 200ms to reduce UI rendering pressure
+                batchTimeout = setTimeout(flushLogs, 200);
             }
         };
 
         // Send recent history if requested
         if (req.query.history === 'true' && logger.getHistory) {
             const history = logger.getHistory();
-            history.forEach(log => sendLog(log));
+            // history.forEach(log => sendLog(log));
+            // For history, we can send it all at once as a single batch
+            if (history.length > 0) {
+                const data = history.map(log => `data: ${JSON.stringify(log)}\n\n`).join('');
+                res.write(data);
+            }
         }
 
         // Subscribe to new logs
@@ -621,6 +642,9 @@ export function mountWebUI(app, dirname, accountManager) {
 
         // Cleanup on disconnect
         req.on('close', () => {
+            if (batchTimeout) {
+                clearTimeout(batchTimeout);
+            }
             if (logger.off) {
                 logger.off('log', sendLog);
             }

@@ -1,4 +1,5 @@
-import fs from 'fs';
+import { readFile, writeFile, mkdir, copyFile, access } from 'fs/promises';
+import { existsSync, constants as fsConstants } from 'fs';
 import path from 'path';
 
 import { USAGE_HISTORY_PATH } from '../constants.js';
@@ -13,6 +14,7 @@ const OLD_HISTORY_FILE = path.join(OLD_DATA_DIR, 'usage-history.json');
 // Structure: { "YYYY-MM-DDTHH:00:00.000Z": { "claude": { "model-name": count, "_subtotal": count }, "_total": count } }
 let history = {};
 let isDirty = false;
+let isSaving = false;
 
 /**
  * Extract model family from model ID
@@ -39,27 +41,39 @@ function getShortName(modelId, family) {
 }
 
 /**
+ * Helper to check if file exists using async access
+ */
+async function fileExists(path) {
+    try {
+        await access(path, fsConstants.F_OK);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Ensure data directory exists and load history.
  * Includes migration from legacy local data directory.
  */
-function load() {
+async function load() {
     try {
         // Migration logic: if old file exists and new one doesn't
-        if (fs.existsSync(OLD_HISTORY_FILE) && !fs.existsSync(HISTORY_FILE)) {
+        if (await fileExists(OLD_HISTORY_FILE) && !(await fileExists(HISTORY_FILE))) {
             console.log('[UsageStats] Migrating legacy usage data...');
-            if (!fs.existsSync(DATA_DIR)) {
-                fs.mkdirSync(DATA_DIR, { recursive: true });
+            if (!(await fileExists(DATA_DIR))) {
+                await mkdir(DATA_DIR, { recursive: true });
             }
-            fs.copyFileSync(OLD_HISTORY_FILE, HISTORY_FILE);
+            await copyFile(OLD_HISTORY_FILE, HISTORY_FILE);
             // We keep the old file for safety initially, but could delete it
             console.log(`[UsageStats] Migration complete: ${OLD_HISTORY_FILE} -> ${HISTORY_FILE}`);
         }
 
-        if (!fs.existsSync(DATA_DIR)) {
-            fs.mkdirSync(DATA_DIR, { recursive: true });
+        if (!(await fileExists(DATA_DIR))) {
+            await mkdir(DATA_DIR, { recursive: true });
         }
-        if (fs.existsSync(HISTORY_FILE)) {
-            const data = fs.readFileSync(HISTORY_FILE, 'utf8');
+        if (await fileExists(HISTORY_FILE)) {
+            const data = await readFile(HISTORY_FILE, 'utf8');
             history = JSON.parse(data);
         }
     } catch (err) {
@@ -71,13 +85,17 @@ function load() {
 /**
  * Save history to disk
  */
-function save() {
-    if (!isDirty) return;
+async function save() {
+    if (!isDirty || isSaving) return;
+
+    isSaving = true;
     try {
-        fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+        await writeFile(HISTORY_FILE, JSON.stringify(history, null, 2));
         isDirty = false;
     } catch (err) {
         console.error('[UsageStats] Failed to save history:', err);
+    } finally {
+        isSaving = false;
     }
 }
 
@@ -138,18 +156,32 @@ function track(modelId) {
  * Setup Express Middleware
  * @param {import('express').Application} app
  */
-function setupMiddleware(app) {
-    load();
+async function setupMiddleware(app) {
+    await load();
 
     // Auto-save every minute
-    setInterval(() => {
-        save();
+    setInterval(async () => {
+        await save();
         prune();
     }, 60 * 1000);
 
-    // Save on exit
-    process.on('SIGINT', () => { save(); process.exit(); });
-    process.on('SIGTERM', () => { save(); process.exit(); });
+    // Save on exit (use sync for exit handlers if possible, but SIGINT/SIGTERM are fine with async usually if we don't exit immediately)
+    // However, on exit we should probably attempt a quick write.
+    const onExit = async () => {
+        if (isDirty) {
+            try {
+                // Try sync write on exit to be safe
+                const fsSync = await import('fs');
+                fsSync.default.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+            } catch (err) {
+                // Ignore
+            }
+        }
+        process.exit();
+    };
+
+    process.on('SIGINT', onExit);
+    process.on('SIGTERM', onExit);
 
     // Request interceptor
     // Track both Anthropic (/v1/messages) and OpenAI compatible (/v1/chat/completions) endpoints

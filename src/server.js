@@ -10,7 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendMessage, sendMessageStream, listModels, getModelQuotas, getSubscriptionTier } from './cloudcode/index.js';
 import { mountWebUI } from './webui/index.js';
-import { config } from './config.js';
+import { config, initializeConfig } from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +37,7 @@ let initError = null;
 let initPromise = null;
 
 /**
- * Ensure account manager is initialized (with race condition protection)
+ * Ensure account manager and config are initialized (with race condition protection)
  */
 async function ensureInitialized() {
     if (isInitialized) return;
@@ -47,14 +47,19 @@ async function ensureInitialized() {
 
     initPromise = (async () => {
         try {
+            // Initialize config first
+            await initializeConfig();
+
+            // Initialize account manager
             await accountManager.initialize();
+
             isInitialized = true;
             const status = accountManager.getStatus();
             logger.success(`[Server] Account pool initialized: ${status.summary}`);
         } catch (error) {
             initError = error;
             initPromise = null; // Allow retry on failure
-            logger.error('[Server] Failed to initialize account manager:', error.message);
+            logger.error('[Server] Failed to initialize server:', error.message);
             throw error;
         }
     })();
@@ -282,6 +287,11 @@ app.get('/health', async (req, res) => {
     }
 });
 
+// Response cache for /account-limits to handle concurrent WebUI requests
+let accountLimitsCache = null;
+let accountLimitsCacheTime = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
 /**
  * Account limits endpoint - fetch quota/limits for all accounts × all models
  * Returns a table showing remaining quota and reset time for each combination
@@ -293,6 +303,12 @@ app.get('/account-limits', async (req, res) => {
         const allAccounts = accountManager.getAllAccounts();
         const format = req.query.format || 'json';
         const includeHistory = req.query.includeHistory === 'true';
+        const force = req.query.force === 'true';
+
+        // Check cache for JSON requests (most common from WebUI)
+        if (format === 'json' && !force && !includeHistory && accountLimitsCache && (Date.now() - accountLimitsCacheTime < CACHE_TTL)) {
+            return res.json(accountLimitsCache);
+        }
 
         // Fetch quotas for each account in parallel
         const results = await Promise.allSettled(
@@ -341,10 +357,8 @@ app.get('/account-limits', async (req, res) => {
                         lastChecked: Date.now()
                     };
 
-                    // Save updated account data to disk (async, don't wait)
-                    accountManager.saveToDisk().catch(err => {
-                        logger.error('[Server] Failed to save account data:', err);
-                    });
+                    // Save updated account data to disk (debounced in AccountManager)
+                    accountManager.saveToDisk();
 
                     return {
                         email: account.email,
@@ -556,6 +570,12 @@ app.get('/account-limits', async (req, res) => {
         // Optionally include usage history (for dashboard performance optimization)
         if (includeHistory) {
             responseData.history = usageStats.getHistory();
+        }
+
+        // Cache the response (only for base requests without includeHistory)
+        if (!includeHistory) {
+            accountLimitsCache = responseData;
+            accountLimitsCacheTime = Date.now();
         }
 
         res.json(responseData);
