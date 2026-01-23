@@ -12,6 +12,7 @@ import {
     getModelFamily
 } from '../constants.js';
 import { logger } from '../utils/logger.js';
+import { fetchWithTimeout } from '../utils/helpers.js';
 
 /**
  * Check if a model is supported (Claude or Gemini)
@@ -159,7 +160,7 @@ export async function getSubscriptionTier(token) {
     for (const endpoint of LOAD_CODE_ASSIST_ENDPOINTS) {
         try {
             const url = `${endpoint}/v1internal:loadCodeAssist`;
-            const response = await fetch(url, {
+            const response = await fetchWithTimeout(url, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -170,7 +171,7 @@ export async function getSubscriptionTier(token) {
                         duetProject: 'rising-fact-p41fc'
                     }
                 })
-            });
+            }, 15000);
 
             if (!response.ok) {
                 logger.warn(`[CloudCode] loadCodeAssist error at ${endpoint}: ${response.status}`);

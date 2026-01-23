@@ -596,9 +596,16 @@ export function mountWebUI(app, dirname, accountManager) {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering
 
         const sendLog = (log) => {
-            res.write(`data: ${JSON.stringify(log)}\n\n`);
+            try {
+                if (res.writable && !res.writableEnded) {
+                    res.write(`data: ${JSON.stringify(log)}\n\n`);
+                }
+            } catch (err) {
+                // Ignore write errors, they will be handled by the close event
+            }
         };
 
         // Send recent history if requested

@@ -188,7 +188,6 @@ export function pickStickyAccount(accounts, currentIndex, onSave, modelId = null
     // No other accounts available. Now checking if we should wait for current account.
     const waitInfo = shouldWaitForCurrentAccount(accounts, currentIndex, modelId);
     if (waitInfo.shouldWait) {
-        logger.info(`[AccountManager] Waiting ${formatDuration(waitInfo.waitMs)} for sticky account: ${waitInfo.account.email}`);
         return { account: null, waitMs: waitInfo.waitMs, newIndex: currentIndex };
     }
 

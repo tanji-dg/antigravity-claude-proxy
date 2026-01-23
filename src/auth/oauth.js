@@ -15,6 +15,7 @@ import {
     OAUTH_REDIRECT_URI
 } from '../constants.js';
 import { logger } from '../utils/logger.js';
+import { fetchWithTimeout } from '../utils/helpers.js';
 
 /**
  * Generate PKCE code verifier and challenge
@@ -227,7 +228,7 @@ export function startCallbackServer(expectedState, timeoutMs = 120000) {
  * @returns {Promise<{accessToken: string, refreshToken: string, expiresIn: number}>} OAuth tokens
  */
 export async function exchangeCode(code, verifier) {
-    const response = await fetch(OAUTH_CONFIG.tokenUrl, {
+    const response = await fetchWithTimeout(OAUTH_CONFIG.tokenUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -240,7 +241,7 @@ export async function exchangeCode(code, verifier) {
             grant_type: 'authorization_code',
             redirect_uri: OAUTH_REDIRECT_URI
         })
-    });
+    }, 15000);
 
     if (!response.ok) {
         const error = await response.text();
@@ -271,7 +272,7 @@ export async function exchangeCode(code, verifier) {
  * @returns {Promise<{accessToken: string, expiresIn: number}>} New access token
  */
 export async function refreshAccessToken(refreshToken) {
-    const response = await fetch(OAUTH_CONFIG.tokenUrl, {
+    const response = await fetchWithTimeout(OAUTH_CONFIG.tokenUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -282,7 +283,7 @@ export async function refreshAccessToken(refreshToken) {
             refresh_token: refreshToken,
             grant_type: 'refresh_token'
         })
-    });
+    }, 15000);
 
     if (!response.ok) {
         const error = await response.text();
@@ -303,11 +304,11 @@ export async function refreshAccessToken(refreshToken) {
  * @returns {Promise<string>} User's email address
  */
 export async function getUserEmail(accessToken) {
-    const response = await fetch(OAUTH_CONFIG.userInfoUrl, {
+    const response = await fetchWithTimeout(OAUTH_CONFIG.userInfoUrl, {
         headers: {
             'Authorization': `Bearer ${accessToken}`
         }
-    });
+    }, 15000);
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -328,7 +329,7 @@ export async function getUserEmail(accessToken) {
 export async function discoverProjectId(accessToken) {
     for (const endpoint of ANTIGRAVITY_ENDPOINT_FALLBACKS) {
         try {
-            const response = await fetch(`${endpoint}/v1internal:loadCodeAssist`, {
+            const response = await fetchWithTimeout(`${endpoint}/v1internal:loadCodeAssist`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
@@ -342,7 +343,7 @@ export async function discoverProjectId(accessToken) {
                         pluginType: 'GEMINI'
                     }
                 })
-            });
+            }, 15000);
 
             if (!response.ok) continue;
 

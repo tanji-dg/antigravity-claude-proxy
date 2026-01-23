@@ -40,6 +40,7 @@ export class AccountManager {
     // Per-account caches
     #tokenCache = new Map(); // email -> { token, extractedAt }
     #projectCache = new Map(); // email -> projectId
+    #initPromise = null;
 
     constructor(configPath = ACCOUNT_CONFIG_PATH) {
         this.#configPath = configPath;
@@ -50,25 +51,36 @@ export class AccountManager {
      */
     async initialize() {
         if (this.#initialized) return;
+        
+        // Return existing initialization promise if already in progress
+        if (this.#initPromise) return this.#initPromise;
 
-        const { accounts, settings, activeIndex } = await loadAccounts(this.#configPath);
+        this.#initPromise = (async () => {
+            try {
+                const { accounts, settings, activeIndex } = await loadAccounts(this.#configPath);
 
-        this.#accounts = accounts;
-        this.#settings = settings;
-        this.#currentIndex = activeIndex;
+                this.#accounts = accounts;
+                this.#settings = settings;
+                this.#currentIndex = activeIndex;
 
-        // If config exists but has no accounts, fall back to Antigravity database
-        if (this.#accounts.length === 0) {
-            logger.warn('[AccountManager] No accounts in config. Falling back to Antigravity database');
-            const { accounts: defaultAccounts, tokenCache } = loadDefaultAccount();
-            this.#accounts = defaultAccounts;
-            this.#tokenCache = tokenCache;
-        }
+                // If config exists but has no accounts, fall back to Antigravity database
+                if (this.#accounts.length === 0) {
+                    logger.warn('[AccountManager] No accounts in config. Falling back to Antigravity database');
+                    const { accounts: defaultAccounts, tokenCache } = loadDefaultAccount();
+                    this.#accounts = defaultAccounts;
+                    this.#tokenCache = tokenCache;
+                }
 
-        // Clear any expired rate limits
-        this.clearExpiredLimits();
+                // Clear any expired rate limits
+                this.clearExpiredLimits();
 
-        this.#initialized = true;
+                this.#initialized = true;
+            } finally {
+                this.#initPromise = null;
+            }
+        })();
+
+        return this.#initPromise;
     }
 
     /**

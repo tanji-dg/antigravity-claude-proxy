@@ -13,7 +13,7 @@ import {
 } from '../constants.js';
 import { convertGoogleToAnthropic } from '../format/index.js';
 import { isRateLimitError, isAuthError } from '../errors.js';
-import { formatDuration, sleep, isNetworkError } from '../utils/helpers.js';
+import { formatDuration, sleep, isNetworkError, fetchWithTimeout } from '../utils/helpers.js';
 import { logger } from '../utils/logger.js';
 import { parseResetTime } from './rate-limit-parser.js';
 import { buildCloudCodeRequest, buildHeaders } from './request-builder.js';
@@ -83,6 +83,7 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
                 if (!account) {
                     logger.warn('[CloudCode] No account available after wait, attempting optimistic reset...');
                     accountManager.resetAllRateLimits();
+                    // Advance to next account to avoid immediate retry on the same one
                     account = accountManager.pickNext(model);
                 }
             }
@@ -118,11 +119,11 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
                         ? `${endpoint}/v1internal:streamGenerateContent?alt=sse`
                         : `${endpoint}/v1internal:generateContent`;
 
-                    const response = await fetch(url, {
+                    const response = await fetchWithTimeout(url, {
                         method: 'POST',
                         headers: buildHeaders(token, model, isThinking ? 'text/event-stream' : 'application/json'),
                         body: JSON.stringify(payload)
-                    });
+                    }, 60000);
 
                     if (!response.ok) {
                         const errorText = await response.text();
@@ -192,17 +193,20 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
             if (isRateLimitError(error)) {
                 // Rate limited - already marked, continue to next account
                 logger.info(`[CloudCode] Account ${account.email} rate-limited, trying next...`);
+                await sleep(1000); // Add small delay to prevent tight loop
                 continue;
             }
             if (isAuthError(error)) {
                 // Auth invalid - already marked, continue to next account
                 logger.warn(`[CloudCode] Account ${account.email} has invalid credentials, trying next...`);
+                await sleep(500); // Brief delay
                 continue;
             }
             // Non-rate-limit error: throw immediately
             // UNLESS it's a 500 error, then we treat it as a "soft" failure for this account and try the next one
             if (error.message.includes('API error 5') || error.message.includes('500') || error.message.includes('503')) {
                 logger.warn(`[CloudCode] Account ${account.email} failed with 5xx error, trying next...`);
+                await sleep(1000); // Add delay
                 accountManager.pickNext(model); // Force advance to next account
                 continue;
             }

@@ -12,6 +12,7 @@ import {
 } from '../constants.js';
 import { getAuthStatus } from './database.js';
 import { logger } from '../utils/logger.js';
+import { fetchWithTimeout } from '../utils/helpers.js';
 
 // Cache for the extracted token
 let cachedToken = null;
@@ -22,7 +23,7 @@ let tokenExtractedAt = null;
  */
 async function extractChatParams() {
     try {
-        const response = await fetch(`http://127.0.0.1:${ANTIGRAVITY_AUTH_PORT}/`);
+        const response = await fetchWithTimeout(`http://127.0.0.1:${ANTIGRAVITY_AUTH_PORT}/`, {}, 5000);
         const html = await response.text();
 
         // Find the base64-encoded chatParams in the HTML

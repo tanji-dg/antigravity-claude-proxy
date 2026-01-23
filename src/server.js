@@ -115,9 +115,10 @@ function parseError(error) {
         errorType = 'authentication_error';
         statusCode = 401;
         errorMessage = 'Authentication failed. Make sure Antigravity is running with a valid token.';
-    } else if (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('QUOTA_EXHAUSTED')) {
+    } else if (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('QUOTA_EXHAUSTED') || 
+               error.message.includes('Max retries exceeded') || error.message.includes('No accounts available')) {
         errorType = 'invalid_request_error';  // Use invalid_request_error to force client to purge/stop
-        statusCode = 400;  // Use 400 to ensure client does not retry (429 and 529 trigger retries)
+        statusCode = 400;  // Use 400 to ensure client does not retry
 
         // Try to extract the quota reset time from the error
         const resetMatch = error.message.match(/quota will reset after ([\dh\dm\ds]+)/i);
@@ -307,6 +308,20 @@ app.get('/account-limits', async (req, res) => {
                 }
 
                 try {
+                    // Only fetch if data is missing or stale (> 5 mins)
+                    const STALE_THRESHOLD = 5 * 60 * 1000;
+                    const now = Date.now();
+                    const isStale = !account.quota?.lastChecked || (now - account.quota.lastChecked > STALE_THRESHOLD);
+
+                    if (!isStale && req.query.force !== 'true') {
+                        return {
+                            email: account.email,
+                            status: 'ok',
+                            subscription: account.subscription || { tier: 'unknown', projectId: null },
+                            models: account.quota?.models || {}
+                        };
+                    }
+
                     const token = await accountManager.getTokenForAccount(account);
 
                     // Fetch both quotas and subscription tier in parallel
