@@ -8,7 +8,7 @@ import { initProxy } from './utils/proxy.js';
 import { initializeConfig } from './config.js';
 
 import app from './server.js';
-import { DEFAULT_PORT } from './constants.js';
+import { DEFAULT_PORT, refreshConstants } from './constants.js';
 import { logger } from './utils/logger.js';
 import path from 'path';
 import os from 'os';
@@ -27,7 +27,10 @@ logger.setDebug(isDebug);
 // Main startup function
 async function startServer() {
     // Initialize configuration
-    await initializeConfig();
+    const loadedConfig = await initializeConfig();
+    
+    // Refresh constants with loaded config values
+    refreshConstants();
 
     if (isDebug) {
         logger.debug('Debug mode enabled');
@@ -37,7 +40,8 @@ async function startServer() {
         logger.info('Model fallback mode enabled');
     }
 
-    const PORT = process.env.PORT || DEFAULT_PORT;
+    // Port priority: Environment variable > Config file > Default constant
+    const PORT = process.env.PORT || loadedConfig.port || DEFAULT_PORT;
 
     // Home directory for account storage
     const HOME_DIR = os.homedir();

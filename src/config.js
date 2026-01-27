@@ -8,6 +8,7 @@ import { logger } from './utils/logger.js';
 const DEFAULT_CONFIG = {
     apiKey: '',
     webuiPassword: '',
+    port: 8080,
     debug: false,
     logLevel: 'info',
     maxRetries: 5,
@@ -17,6 +18,8 @@ const DEFAULT_CONFIG = {
     defaultCooldownMs: 10000,  // 10 seconds
     maxWaitBeforeErrorMs: 120000, // 2 minutes
     respectApiRateLimit: false, // Respect API reset time instead of capping
+    requestBodyLimit: '50mb',
+    accountConfigPath: '', // Will be set to default path if empty
     modelMapping: {}
 };
 

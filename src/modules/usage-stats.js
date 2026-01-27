@@ -74,7 +74,11 @@ async function load() {
         }
         if (await fileExists(HISTORY_FILE)) {
             const data = await readFile(HISTORY_FILE, 'utf8');
-            history = JSON.parse(data);
+            if (!data || !data.trim()) {
+                history = {};
+            } else {
+                history = JSON.parse(data);
+            }
         }
     } catch (err) {
         console.error('[UsageStats] Failed to load history:', err);

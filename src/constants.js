@@ -80,19 +80,19 @@ export const LOAD_CODE_ASSIST_HEADERS = {
 export const DEFAULT_PROJECT_ID = 'rising-fact-p41fc';
 
 // Configurable constants - values from config.json take precedence
-export const TOKEN_REFRESH_INTERVAL_MS = config?.tokenCacheTtlMs || (5 * 60 * 1000); // From config or 5 minutes
-export const REQUEST_BODY_LIMIT = config?.requestBodyLimit || '50mb';
+export let TOKEN_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+export let REQUEST_BODY_LIMIT = '50mb';
 export const ANTIGRAVITY_AUTH_PORT = 9092;
-export const DEFAULT_PORT = config?.port || 8080;
+export let DEFAULT_PORT = 8080;
 
 // Multi-account configuration
-export const ACCOUNT_CONFIG_PATH = config?.accountConfigPath || join(
+export let ACCOUNT_CONFIG_PATH = join(
     homedir(),
     '.config/antigravity-proxy/accounts.json'
 );
 
 // Usage history persistence path
-export const USAGE_HISTORY_PATH = join(
+export let USAGE_HISTORY_PATH = join(
     homedir(),
     '.config/antigravity-proxy/usage-history.json'
 );
@@ -101,14 +101,34 @@ export const USAGE_HISTORY_PATH = join(
 // Uses platform-specific path detection
 export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();
 
-export const DEFAULT_COOLDOWN_MS = config?.defaultCooldownMs || (10 * 1000); // From config or 10 seconds
-export const MAX_RETRIES = config?.maxRetries || 5; // From config or 5
-export const MAX_EMPTY_RESPONSE_RETRIES = 2; // Max retries for empty API responses (from upstream)
-export const MAX_ACCOUNTS = config?.maxAccounts || 10; // From config or 10
+export let DEFAULT_COOLDOWN_MS = 10 * 1000;
+export let MAX_RETRIES = 5;
+export const MAX_EMPTY_RESPONSE_RETRIES = 2;
+export let MAX_ACCOUNTS = 10;
 
 // Rate limit wait thresholds
-export const MAX_WAIT_BEFORE_ERROR_MS = config?.maxWaitBeforeErrorMs || 120000; // From config or 2 minutes
-export const RESPECT_API_RATE_LIMIT = config?.respectApiRateLimit || false; // From config or false
+export let MAX_WAIT_BEFORE_ERROR_MS = 120000;
+export let RESPECT_API_RATE_LIMIT = false;
+
+/**
+ * Refresh all configurable constants from the loaded config.
+ * Must be called after initializeConfig().
+ */
+export function refreshConstants() {
+    TOKEN_REFRESH_INTERVAL_MS = config?.tokenCacheTtlMs || (5 * 60 * 1000);
+    REQUEST_BODY_LIMIT = config?.requestBodyLimit || '50mb';
+    DEFAULT_PORT = config?.port || 8080;
+    
+    if (config?.accountConfigPath) {
+        ACCOUNT_CONFIG_PATH = config.accountConfigPath;
+    }
+    
+    DEFAULT_COOLDOWN_MS = config?.defaultCooldownMs || (10 * 1000);
+    MAX_RETRIES = config?.maxRetries || 5;
+    MAX_ACCOUNTS = config?.maxAccounts || 10;
+    MAX_WAIT_BEFORE_ERROR_MS = config?.maxWaitBeforeErrorMs || 120000;
+    RESPECT_API_RATE_LIMIT = config?.respectApiRateLimit || false;
+}
 
 // Thinking model constants
 export const MIN_SIGNATURE_LENGTH = 50; // Minimum valid thinking signature length
