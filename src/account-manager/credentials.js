@@ -118,7 +118,7 @@ export async function discoverProject(token) {
 
     for (const endpoint of LOAD_CODE_ASSIST_ENDPOINTS) {
         try {
-            const response = await fetch(`${endpoint}/v1internal:loadCodeAssist`, {
+            const response = await fetchWithTimeout(`${endpoint}/v1internal:loadCodeAssist`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -133,7 +133,7 @@ export async function discoverProject(token) {
                         duetProject: DEFAULT_PROJECT_ID
                     }
                 })
-            });
+            }, 15000);
 
             if (!response.ok) {
                 const errorText = await response.text();

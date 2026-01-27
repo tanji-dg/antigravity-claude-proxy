@@ -70,11 +70,11 @@ export async function fetchAvailableModels(token) {
     for (const endpoint of ANTIGRAVITY_ENDPOINT_FALLBACKS) {
         try {
             const url = `${endpoint}/v1internal:fetchAvailableModels`;
-            const response = await fetch(url, {
+            const response = await fetchWithTimeout(url, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({})
-            });
+            }, 10000);
 
             if (!response.ok) {
                 const errorText = await response.text();

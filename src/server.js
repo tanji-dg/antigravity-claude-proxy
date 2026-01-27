@@ -306,8 +306,13 @@ app.get('/account-limits', async (req, res) => {
         const force = req.query.force === 'true';
 
         // Check cache for JSON requests (most common from WebUI)
-        if (format === 'json' && !force && !includeHistory && accountLimitsCache && (Date.now() - accountLimitsCacheTime < CACHE_TTL)) {
-            return res.json(accountLimitsCache);
+        if (format === 'json' && !force && accountLimitsCache && (Date.now() - accountLimitsCacheTime < CACHE_TTL)) {
+            // If history is requested, but cache doesn't have it, or vice versa, we might need a fresh fetch.
+            // But usually WebUI always requests history for dashboard.
+            const cacheHasHistory = !!accountLimitsCache.history;
+            if (includeHistory === cacheHasHistory) {
+                return res.json(accountLimitsCache);
+            }
         }
 
         // Fetch quotas for each account in parallel
@@ -572,11 +577,9 @@ app.get('/account-limits', async (req, res) => {
             responseData.history = usageStats.getHistory();
         }
 
-        // Cache the response (only for base requests without includeHistory)
-        if (!includeHistory) {
-            accountLimitsCache = responseData;
-            accountLimitsCacheTime = Date.now();
-        }
+        // Cache the response
+        accountLimitsCache = responseData;
+        accountLimitsCacheTime = Date.now();
 
         res.json(responseData);
     } catch (error) {

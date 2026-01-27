@@ -117,11 +117,11 @@ export async function* sendMessageStream(anthropicRequest, accountManager, fallb
                 try {
                     const url = `${endpoint}/v1internal:streamGenerateContent?alt=sse`;
 
-                    const response = await fetch(url, {
+                    const response = await fetchWithTimeout(url, {
                         method: 'POST',
                         headers: buildHeaders(token, model, 'text/event-stream'),
                         body: JSON.stringify(payload)
-                    });
+                    }, 30000);
 
                     if (!response.ok) {
                         const errorText = await response.text();
@@ -216,11 +216,11 @@ export async function* sendMessageStream(anthropicRequest, accountManager, fallb
                                     emptyRetries--; // Compensate for loop increment since we didn't actually try
                                     await sleep(1000);
                                     // Refetch immediately for 5xx
-                                    currentResponse = await fetch(url, {
+                                    currentResponse = await fetchWithTimeout(url, {
                                         method: 'POST',
                                         headers: buildHeaders(token, model, 'text/event-stream'),
                                         body: JSON.stringify(payload)
-                                    });
+                                    }, 30000);
                                     if (currentResponse.ok) {
                                         continue; // Try streaming with new response
                                     }
