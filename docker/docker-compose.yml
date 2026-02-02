@@ -1,0 +1,26 @@
+services:
+  claude_proxy:
+    image: kozekachi-node:latest
+    container_name: antigravity_claude_proxy
+    user: root
+    ports:
+      - "4000:4000"
+    networks:
+      - shared-net
+    volumes:
+      - ../:/app
+      - proxy_node_modules:/app/node_modules
+      - ~/.config/antigravity-proxy:/home/appuser/.config/antigravity-proxy
+    working_dir: /app
+    environment:
+      HOME: /home/appuser
+    command: sh -c "chown -R appuser:appuser /app/node_modules && su appuser -c 'npm install && npm start'"
+    restart: always
+
+networks:
+  shared-net:
+    external: true
+    name: pachi-shared-net
+
+volumes:
+  proxy_node_modules:
