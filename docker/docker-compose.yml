@@ -19,7 +19,7 @@ services:
       # WEBUI_PASSWORD: "your_password_here"
       # DEBUG: "false"
       RESPECT_API_RATE_LIMIT: "true"
-    command: sh -c "chown -R node:node /app/node_modules && su node -c 'npm install && npm start'"
+    command: sh -c "chown -R node:node /app/node_modules /home/node/.config && su node -c 'npm install && npm start'"
     restart: always
 
 networks:

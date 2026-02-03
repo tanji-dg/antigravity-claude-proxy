@@ -40,6 +40,10 @@ async function startServer() {
         logger.info('Model fallback mode enabled');
     }
 
+    if (loadedConfig.respectApiRateLimit) {
+        logger.info('API rate limit respect mode enabled');
+    }
+
     // Port priority: Environment variable > Config file > Default constant
     const PORT = process.env.PORT || loadedConfig.port || DEFAULT_PORT;
 
