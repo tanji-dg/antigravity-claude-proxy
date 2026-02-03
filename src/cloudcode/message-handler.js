@@ -164,7 +164,7 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
                                     const resetTime = Date.now() + resetMs;
                                     accountManager.updateQuota(account.email, exhaustedModel, {
                                         remainingFraction: 0,
-                                        resetTime: resetTime,
+                                        resetTime: new Date(resetTime).toISOString(),
                                         source: 'runtime_error'
                                     });
 
