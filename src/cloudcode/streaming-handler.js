@@ -145,6 +145,36 @@ export async function* sendMessageStream(anthropicRequest, accountManager, fallb
                             continue;
                         }
 
+                        // Check for Quota Exhausted error (400 or 429)
+                        if (response.status >= 400 && errorText.includes('exhausted your capacity')) {
+                            const resetMs = parseResetTime(response, errorText);
+                            
+                            // Extract model from error message
+                            const modelMatch = errorText.match(/exhausted your capacity on ([^.]+)\./);
+                            const exhaustedModel = modelMatch ? modelMatch[1] : model;
+
+                            if (resetMs) {
+                                logger.warn(`[CloudCode] Quota exhausted for ${account.email} on ${exhaustedModel}. Reset in ${formatDuration(resetMs)}`);
+                                
+                                // Update AccountManager status immediately
+                                const resetTime = Date.now() + resetMs;
+                                accountManager.updateQuota(account.email, exhaustedModel, {
+                                    remainingFraction: 0,
+                                    resetTime: resetTime,
+                                    source: 'runtime_error'
+                                });
+
+                                // Treat as rate limit (429) to trigger account switching
+                                lastError = { 
+                                    is429: true, 
+                                    response, 
+                                    errorText, 
+                                    resetMs 
+                                };
+                                continue;
+                            }
+                        }
+
                         lastError = new Error(`API error ${response.status}: ${errorText}`);
 
                         // If it's a 5xx error, wait a bit before trying the next endpoint

@@ -564,7 +564,8 @@ app.get('/account-limits', async (req, res) => {
                                     ? `${Math.round(quota.remainingFraction * 100)}%`
                                     : 'N/A',
                                 remainingFraction: quota.remainingFraction,
-                                resetTime: quota.resetTime || null
+                                resetTime: quota.resetTime || null,
+                                source: quota.source || 'api'
                             }];
                         })
                     )
