@@ -10,11 +10,16 @@ services:
     volumes:
       - ../:/app
       - proxy_node_modules:/app/node_modules
-      - ~/.config/antigravity-proxy:/home/appuser/.config/antigravity-proxy
+      - ~/.config/antigravity-proxy:/home/node/.config/antigravity-proxy
     working_dir: /app
     environment:
-      HOME: /home/appuser
-    command: sh -c "chown -R appuser:appuser /app/node_modules && su appuser -c 'npm install && npm start'"
+      HOME: /home/node
+      PORT: 4000
+      # API_KEY: "your_api_key_here"
+      # WEBUI_PASSWORD: "your_password_here"
+      # DEBUG: "false"
+      RESPECT_API_RATE_LIMIT: "true"
+    command: sh -c "chown -R node:node /app/node_modules && su node -c 'npm install && npm start'"
     restart: always
 
 networks:

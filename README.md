@@ -341,6 +341,20 @@ While most users can use the default settings, you can tune the proxy behavior v
 
 Refer to `config.example.json` for a complete list of fields and documentation.
 
+### Environment Variables
+
+For Docker users or environments where you prefer environment variables over a configuration file, the following are supported:
+
+| Variable | Description |
+| --- | --- |
+| `PORT` | Port number the server listens on (default: `8080`) |
+| `API_KEY` | Optional API key to protect `/v1/*` endpoints |
+| `WEBUI_PASSWORD` | Optional password to protect the WebUI dashboard |
+| `DEBUG` | Enable debug logging (`true` or `false`) |
+| `RESPECT_API_RATE_LIMIT` | Respect API reset time instead of fixed capping (`true` or `false`) |
+
+Environment variables take precedence over settings in `config.json`.
+
 ---
 
 ## API Endpoints

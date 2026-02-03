@@ -69,8 +69,8 @@ export async function initializeConfig() {
             // Environment overrides
             if (process.env.API_KEY) config.apiKey = process.env.API_KEY;
             if (process.env.WEBUI_PASSWORD) config.webuiPassword = process.env.WEBUI_PASSWORD;
-            if (process.env.DEBUG === 'true') config.debug = true;
-            if (process.env.RESPECT_API_RATE_LIMIT === 'true') config.respectApiRateLimit = true;
+            if (process.env.DEBUG !== undefined) config.debug = process.env.DEBUG === 'true';
+            if (process.env.RESPECT_API_RATE_LIMIT !== undefined) config.respectApiRateLimit = process.env.RESPECT_API_RATE_LIMIT === 'true';
 
             isLoaded = true;
             return config;
