@@ -276,6 +276,28 @@ export class AccountManager {
     }
 
     /**
+     * Update quota information for an account (e.g. from error response)
+     * @param {string} email - Account email
+     * @param {string} modelId - Model ID
+     * @param {Object} quotaData - Quota data to merge (remainingFraction, resetTime, source)
+     */
+    updateQuota(email, modelId, quotaData) {
+        const account = this.#accounts.find(a => a.email === email);
+        if (account) {
+            if (!account.quota) account.quota = { models: {}, lastChecked: Date.now() };
+            if (!account.quota.models) account.quota.models = {};
+            
+            account.quota.models[modelId] = {
+                ...account.quota.models[modelId],
+                ...quotaData,
+                lastUpdated: Date.now()
+            };
+            this.saveToDisk();
+            logger.info(`[AccountManager] Updated quota for ${email} on ${modelId}: ${JSON.stringify(quotaData)}`);
+        }
+    }
+
+    /**
      * Save current state to disk (debounced to avoid excessive I/O)
      * @returns {void}
      */

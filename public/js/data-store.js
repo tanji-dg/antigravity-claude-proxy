@@ -315,7 +315,8 @@ document.addEventListener('alpine:init', () => {
                         email: acc.email.split('@')[0],
                         fullEmail: acc.email,
                         pct: pct,
-                        resetTime: limit.resetTime
+                        resetTime: limit.resetTime,
+                        source: limit.source
                     });
                 });
 

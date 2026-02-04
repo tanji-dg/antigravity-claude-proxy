@@ -219,16 +219,19 @@
                                         <div class="flex flex-wrap gap-1 justify-start">
                                             <!-- Visible accounts (limited to maxVisible) -->
                                             <template x-for="(q, idx) in row.quotaInfo.slice(0, maxVisible)" :key="q.fullEmail">
-                                                <div class="tooltip tooltip-left" :data-tip="`${q.fullEmail} (${q.pct}%)`">
+                                                <div class="tooltip tooltip-left" :data-tip="`${q.fullEmail} (${q.pct}%)${q.source === 'runtime_error' ? ' [Runtime Error]' : ''}`">
                                                     <div class="w-3 h-3 rounded-[2px] transition-all hover:scale-125 cursor-help"
-                                                        :class="q.pct > 50 ? 'bg-neon-green opacity-80' : (q.pct > 0 ? 'bg-yellow-500 opacity-80' : 'bg-red-900 opacity-50')">
+                                                        :class="[
+                                                            q.pct > 50 ? 'bg-neon-green opacity-80' : (q.pct > 0 ? 'bg-yellow-500 opacity-80' : 'bg-red-900 opacity-50'),
+                                                            q.source === 'runtime_error' ? 'border border-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]' : ''
+                                                        ]">
                                                     </div>
                                                 </div>
                                             </template>
                                             <!-- Overflow indicator -->
                                             <template x-if="row.quotaInfo.length > maxVisible">
                                                 <div class="tooltip tooltip-left"
-                                                     :data-tip="row.quotaInfo.slice(maxVisible).map(q => `${q.fullEmail} (${q.pct}%)`).join('\n')">
+                                                     :data-tip="row.quotaInfo.slice(maxVisible).map(q => `${q.fullEmail} (${q.pct}%)${q.source === 'runtime_error' ? ' [Runtime Error]' : ''}`).join('\n')">
                                                     <div class="w-3 h-3 rounded-[2px] bg-gray-700/50 border border-gray-600 flex items-center justify-center cursor-help hover:bg-gray-600/70 transition-colors">
                                                         <span class="text-[8px] text-gray-400 font-bold leading-none" x-text="`+${row.quotaInfo.length - maxVisible}`"></span>
                                                     </div>
